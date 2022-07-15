@@ -1,4 +1,4 @@
-import React from 'react';
+import { useState, useEffect } from 'react';
 import { nanoid } from 'nanoid';
 import { Report } from 'notiflix/build/notiflix-report-aio';
 import ContactsForm from './components/ContactsForm/ContactsForm';
@@ -9,44 +9,23 @@ import { Button, MainTitle, SecondTitle, Section } from './components/ui';
 import Contacts from 'components/Contacts/Contacts';
 import Modal from 'components/Modal/Modal';
 
-class App extends React.Component {
-  state = {
-    contacts: [],
-    filter: '',
-    showModal: false,
-  };
+function App() {
+  const [contacts, setContacts] = useState([]);
+  const [filter, setFilter] = useState('');
+  const [showModal, setShowModal] = useState(false);
 
-  componentDidMount() {
+  useEffect(() => {
     const contacts = localStorage.getItem('contacts');
     const parsedContacts = JSON.parse(contacts);
 
-    if (parsedContacts) {
-      this.setState({ contacts: parsedContacts });
-    }
-  }
+    parsedContacts ? setContacts(parsedContacts) : setContacts([]);
+  }, []);
 
-  toggleModal = () => {
-    this.setState(({ showModal }) => ({ showModal: !showModal }));
-  };
+  useEffect(() => {
+    localStorage.setItem('contacts', JSON.stringify(contacts));
+  }, [contacts]);
 
-  componentDidUpdate(prevProps, prevState) {
-    const nextContacts = this.state.contacts;
-    const prevContacts = prevState.contacts;
-
-    if (nextContacts !== prevContacts) {
-      localStorage.setItem('contacts', JSON.stringify(nextContacts));
-    }
-
-    if (
-      nextContacts.length > prevContacts.length &&
-      prevContacts.length !== 0
-    ) {
-      this.toggleModal();
-    }
-  }
-
-  addContact = ({ name, number }) => {
-    const { contacts } = this.state;
+  const addContact = ({ name, number }) => {
     const newContact = { id: nanoid(), name, number };
 
     contacts.some(contact => contact.name === name)
@@ -55,60 +34,56 @@ class App extends React.Component {
           'This user is already in the contact list.',
           'OK'
         )
-      : this.setState(({ contacts }) => ({
-          contacts: [...contacts, newContact],
-        }));
+      : setContacts(prevContacts => [newContact, ...prevContacts]);
+
+    toggleModal();
   };
 
-  deleteContact = contactId => {
-    this.setState(prevState => ({
-      contacts: prevState.contacts.filter(contact => contact.id !== contactId),
-    }));
+  const deleteContact = contactId => {
+    setContacts(prevContacts =>
+      prevContacts.filter(contact => contact.id !== contactId)
+    );
   };
 
-  changeFilter = e => {
-    this.setState({ filter: e.currentTarget.value });
-  };
+  const changeFilter = e => setFilter(e.currentTarget.value);
 
-  filtredContacts = () => {
-    const { filter, contacts } = this.state;
+  const filtredContacts = () => {
     const normalizedFilter = filter.toLowerCase();
-    return contacts.filter(({ name }) =>
-      name.toLowerCase().includes(normalizedFilter)
+    return contacts.filter(contact =>
+      contact.name.toLowerCase().includes(normalizedFilter)
     );
   };
 
-  render() {
-    const { filter, showModal } = this.state;
-    const filtredContacts = this.filtredContacts();
-    return (
-      <Container>
-        <Section>
-          <MainTitle>Phonebook</MainTitle>
-          <Button type="button" onClick={this.toggleModal}>
-            Add new contact
-          </Button>
+  const toggleModal = () => {
+    setShowModal(prevShowModal => !prevShowModal);
+  };
+  return (
+    <Container>
+      <Section>
+        <MainTitle>Phonebook</MainTitle>
+        <Button type="button" onClick={toggleModal}>
+          Add new contact
+        </Button>
 
-          {showModal && (
-            <Modal onClose={this.toggleModal} title="Add contact">
-              <ContactsForm onSubmit={this.addContact} />
-            </Modal>
-          )}
+        {showModal && (
+          <Modal onClose={toggleModal} title="Add contact">
+            <ContactsForm onSubmit={addContact} />
+          </Modal>
+        )}
 
-          <SecondTitle>Contacts</SecondTitle>
-          <Filter filter={filter} changeFilter={this.changeFilter} />
-          {this.state.contacts.length > 0 ? (
-            <Contacts
-              contacts={filtredContacts}
-              onDeleteContact={this.deleteContact}
-            />
-          ) : (
-            <Message text="Contact list is empty." />
-          )}
-        </Section>
-      </Container>
-    );
-  }
+        <SecondTitle>Contacts</SecondTitle>
+        <Filter filter={filter} changeFilter={changeFilter} />
+        {contacts.length > 0 ? (
+          <Contacts
+            contacts={filtredContacts()}
+            onDeleteContact={deleteContact}
+          />
+        ) : (
+          <Message text="Contact list is empty." />
+        )}
+      </Section>
+    </Container>
+  );
 }
 
 export default App;
